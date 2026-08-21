@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/seatsync
+    username: postgres
+    password: callos
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
