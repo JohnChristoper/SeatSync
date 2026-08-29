@@ -29,10 +29,32 @@ What to search / learn:
 
 You know Spring Security basics presumably from CRUD apps. What's new here is doing it *properly* with refresh tokens.
 
-What to search:
-- "Spring Boot JWT access token refresh token tutorial" (pick one that covers **both** tokens, not just access-token-only tutorials — those are everywhere and skip the harder half)
-- "JWT revocation refresh token Redis" — this is the specific technique the plan calls for (storing refresh tokens in Redis so logout can actually invalidate them)
-- "Spring Security role based authorization PreAuthorize"
+Step 1: User entity + plain registration (no JWT yet)
+
+Create User entity: id, name, email, passwordHash, role
+Create UserRepository (extends JpaRepository)
+Create AuthController with POST /api/auth/register — takes name/email/password, hashes password with BCryptPasswordEncoder, saves user
+Test it (Postman/Insomnia or even curl) and confirm the row appears in your Postgres container with a hashed password (not plaintext)
+
+Step 2: Login without JWT first
+
+POST /api/auth/login — look up user by email, compare password using BCryptPasswordEncoder.matches(), return success/failure
+Get this working before adding tokens — you want to isolate "is my password check correct" from "is my token logic correct"
+
+Step 3: Add JWT
+
+Now search "Spring Boot JWT access token refresh token tutorial" like the guide says
+On successful login, generate and return an access token + refresh token instead of just "success"
+
+Step 4: Protect routes + roles
+
+Search "Spring Security role based authorization PreAuthorize"
+Add a role check on a test endpoint to confirm only certain roles can access it
+
+Step 5: Refresh token revocation via Redis
+
+Search "JWT revocation refresh token Redis"
+Store refresh tokens in Redis (you already have it running) so logout can actually invalidate them
 
 You don't need to learn OAuth or Keycloak or anything like that — plain JWT is enough and is what the plan specifies.
 
