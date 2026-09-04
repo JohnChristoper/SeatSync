@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.Optional;
 
 /*  Tells Spring that this class handles web requests and directly serializes the response objects
@@ -21,10 +22,14 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder){
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenService = refreshTokenService;
     }
 
     // Registration endpoint
@@ -41,7 +46,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request){
         if(userRepository.existsByEmail(request.getEmail())){
-            return ResponseEntity.badRequest().body("Email already in use");
+            return ResponseEntity.badRequest().body("Email already in use.");
         }
 
         //new entity will be created once email is not in use
@@ -52,23 +57,41 @@ public class AuthController {
 
         userRepository.save(user);
 
-        return ResponseEntity.ok("User registered successfully");
+        return ResponseEntity.ok("User registered successfully.");
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request){
-        Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
+        Optional<User> userOptional = userRepository.findByEmail(request.email());
 
         if(userOptional.isEmpty()){
-            return ResponseEntity.status(401).body("Invalid email or password");
+            return ResponseEntity.status(401).body("Invalid email or password.");
         }
 
         User user = userOptional.get();
 
-        if(!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())){
-            return ResponseEntity.status(401).body("Invalid email or password");
+        if(!passwordEncoder.matches(request.password(), user.getPasswordHash())){
+            return ResponseEntity.status(401).body("Invalid email or password.");
         }
 
-        return ResponseEntity.ok("Login successful, welcome " + user.getName());
+        RefreshToken newREfreshToken = refreshTokenService.createRefreshToken(user.getId());
+
+        return ResponseEntity.ok(
+                "Login successful, welcome " + user.getName() +
+                        ".\nToken: " + newREfreshToken.getToken());
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshTokenRequest payload){
+        return refreshTokenRepository.findByToken(payload.getToken()).map(token -> {
+            if(refreshTokenService.isTokenExpired(token)){
+                refreshTokenRepository.delete(token);
+                return ResponseEntity.badRequest().body("Refresh token expired. Please login again.");
+            }
+
+            RefreshToken newREfreshToken = refreshTokenService.createRefreshToken(token.getUser().getId());
+            return ResponseEntity.ok(Map.of("token", newREfreshToken.getToken()));
+        }).orElse(ResponseEntity.badRequest().body("Invalid refresh token."));
+    }
+
 }
